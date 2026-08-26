@@ -1079,10 +1079,6 @@ def msprime_rm_to_slim_rm(recombination_map):
     return rates, ends[1:]
 
 
-# TODO: do we want to check if the DMEs in the contig are actually going to get
-# simulated?  E.g., you could have a bunch of mutation types that are not
-# applied anywhere in the part of the contig that's actually going to be
-# simulated.
 def _check_traits_model_contig_consistency(contig, traits_model):
     mt_traits = []
     for dme in contig.dme_list:
@@ -1096,13 +1092,24 @@ def _check_traits_model_contig_consistency(contig, traits_model):
             "defined in the TraitsModel."
         )
     tm_ids = [t.id for t in traits_model.traits]
-    # TODO: this might be a bit draconian
     tm_set = set(tm_ids) - set(["fitness"])
+
+    # now check just mutation types that overlap the simulated region
+    mt_traits = []
+    _, left, right = contig.coordinates
+    for dme, intervals in zip(contig.dme_list, contig.interval_list):
+        if intervals.shape[0] > 0:
+            for mt, prop in zip(dme.mutation_types, dme.proportions):
+                if prop > 0:
+                    mt_traits.extend(mt.trait_ids)
     mt_traits = set(mt_traits) - set(["fitness"])
     if frozenset(tm_set) != frozenset(mt_traits):
-        raise ValueError(
-            "There is a trait in the TraitsModel "
-            "that is not affected by any MutationType."
+        warnings.warn(
+            stdpopsim.SLiMTraitsWarning(
+                "There is a trait in the TraitsModel "
+                "that will not be affected by any mutations "
+                "simulated region of the contig."
+            )
         )
 
 

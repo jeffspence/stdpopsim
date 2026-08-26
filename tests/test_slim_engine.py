@@ -3529,7 +3529,19 @@ class TestTraits:
         )
         contig.add_dme(intervals=np.array([[0, 100]]), DME=dme)
 
-        with pytest.raises(ValueError, match="There is a trait in"):
+        with pytest.warns(stdpopsim.SLiMTraitsWarning, match="There is a trait in"):
+            self.engine.simulate(
+                self.demography, contig, samples={"A": 3}, traits_model=tm, seed=7
+            )
+
+        # covers all of the traits but doesn't overlap
+        contig = self.species.get_contig("chr1", left=0, right=100)
+        dme = stdpopsim.DistributionOfMutationEffects(
+            mutation_types=[mt1, mt2, mt3], proportions=[0.2, 0.7, 0.1]
+        )
+        contig.add_dme(intervals=np.array([[200, 1000]]), DME=dme)
+
+        with pytest.warns(stdpopsim.SLiMTraitsWarning, match="There is a trait in"):
             self.engine.simulate(
                 self.demography, contig, samples={"A": 3}, traits_model=tm, seed=7
             )
@@ -3659,7 +3671,7 @@ class TestTraits:
         assert ts.metadata['SLiM']['tick'] == 251
 
         tm.add_environment(
-            id="env4",
+            id="env5",
             trait_ids=["add1", "add2"],
             distribution_type="mvn",
             distribution_args=[np.zeros(2), np.eye(2)],
@@ -3675,7 +3687,7 @@ class TestTraits:
         tm.add_fitness_function(
             id="fit1",
             trait_ids=["add1", "add2"],
-            function_type="mvn",
+            function_type="gaussian",
             function_args=[np.zeros(2), np.eye(2)],
             time_intervals=[(0, float("inf"))],
         )
@@ -3687,7 +3699,7 @@ class TestTraits:
         tm.add_fitness_function(
             id="fit2",
             trait_ids=["add1", "add2"],
-            function_type="mvn",
+            function_type="gaussian",
             function_args=[np.zeros(2), np.eye(2)],
             time_intervals=[(0, float("inf"))],
             population_list=["A"]
@@ -3700,7 +3712,7 @@ class TestTraits:
         tm.add_fitness_function(
             id="fit3",
             trait_ids=["add1", "add2"],
-            function_type="mvn",
+            function_type="gaussian",
             function_args=[np.zeros(2), np.eye(2)],
             time_intervals=[(30, float("inf"))],
             population_list=["anc"]
@@ -3713,7 +3725,7 @@ class TestTraits:
         tm.add_fitness_function(
             id="fit4",
             trait_ids=["add1", "add2"],
-            function_type="mvn",
+            function_type="gaussian",
             function_args=[np.zeros(2), np.eye(2)],
             time_intervals=[(0, 50)],
         )
@@ -3722,10 +3734,10 @@ class TestTraits:
         )
         assert ts.metadata['SLiM']['tick'] == 251
 
-        tm.add_fitnesss_function(
+        tm.add_fitness_function(
             id="fit5",
             trait_ids=["add1", "add2"],
-            function_type="mvn",
+            function_type="gaussian",
             function_args=[np.zeros(2), np.eye(2)],
             time_intervals=[(50, 70)],
             population_list=["anc"]
@@ -3802,17 +3814,20 @@ class TestTraits:
                 add1_phenos.append(ind.metadata['per_trait'][1]["phenotype"])
                 add2_phenos.append(ind.metadata['per_trait'][2]["phenotype"])
                 mult_phenos.append(ind.metadata['per_trait'][3]["phenotype"])
+            add1_phenos = np.array(add1_phenos)
+            add2_phenos = np.array(add2_phenos)
+            mult_phenos = np.array(mult_phenos)
 
             # probability of being 1 should be astronomically small because
             # mutations have huge negative effects
-            assert np.all(np.array(add1_phenos) == 0)
+            assert np.all(add1_phenos == 0)
 
             assert np.mean(add2_phenos) == 1
 
             # probability of being 0 should be astronomically small because
             # mutations all have positive effects and the untransformed phenotype
             # is multiplicative
-            assert np.all(np.array(mult_phenos) == 1)
+            assert np.all(mult_phenos == 1)
 
         # Now we'll vary the transform parameters
         traits = [
@@ -3826,7 +3841,7 @@ class TestTraits:
                 id="add2",
                 type="additive",
                 transform="threshold",
-                transform_args=[0.1]
+                transform_args=[0]
             ),
             stdpopsim.Trait(
                 id="mult",
@@ -3836,6 +3851,12 @@ class TestTraits:
             ),
         ]
         tm = stdpopsim.TraitsModel(traits)
+        tm.add_environment(
+            id="env",
+            trait_ids=["add1", "add2"],
+            distribution_type="mvn",
+            distribution_args=[np.zeros(2), np.eye(2)]
+        )
         mt1 = stdpopsim.MutationType(
             trait_ids=["add1", "add2"],
             distribution_type="mvn",
@@ -3877,14 +3898,24 @@ class TestTraits:
                 add1_phenos.append(ind.metadata['per_trait'][1]["phenotype"])
                 add2_phenos.append(ind.metadata['per_trait'][2]["phenotype"])
                 mult_phenos.append(ind.metadata['per_trait'][3]["phenotype"])
+            add1_phenos = np.array(add1_phenos)
+            add2_phenos = np.array(add2_phenos)
+            mult_phenos = np.array(mult_phenos)
+            # all of the raw genetic values for these two traits should be ~0,
+            # but then the environment makes them i.i.d. N(0, 1), and they have
+            # thresholds -1 and 0
 
-            # all of the raw phenotypes for these two traits should be ~0, but
-            # the thresholds are -1 and 0.1
-            assert np.all(np.array(add1_phenos) == 1)
-            assert np.all(np.array(add2_phenos) == 0)
+            # should have an 0.8413447 success probability
+            assert np.mean(add1_phenos) > 0.59
+            assert np.all((add1_phenos == 0) + (add1_phenos == 1))
+
+            # should have a 0.5 success probability
+            assert np.mean(add2_phenos) > 0.25
+            assert np.mean(add2_phenos) < 0.75
+            assert np.all((add2_phenos == 0) + (add2_phenos == 1))
 
             # all the raw phenotypes should be ~1, but the threshold is 2
-            assert np.all(np.array(mult_phenos) == 0)
+            assert np.all(mult_phenos == 0)
 
     def test_trait_transformation_liability(self):
         traits = [
@@ -3949,19 +3980,23 @@ class TestTraits:
                 add1_phenos.append(ind.metadata['per_trait'][1]["phenotype"])
                 add2_phenos.append(ind.metadata['per_trait'][2]["phenotype"])
                 mult_phenos.append(ind.metadata['per_trait'][3]["phenotype"])
+            add1_phenos = np.array(add1_phenos)
+            add2_phenos = np.array(add2_phenos)
+            mult_phenos = np.array(mult_phenos)
 
             # probability of being 1 should be astronomically small because
             # mutations have huge negative effects
-            assert np.all(np.array(add1_phenos) == 0)
+            assert np.all(add1_phenos == 0)
 
             # These should be ~ 50/50 0 and 1 because mutations have tiny effects
             assert np.mean(add2_phenos) > 0.25
             assert np.mean(add2_phenos) < 0.75
+            assert np.all((add2_phenos == 0) + (add2_phenos == 1))
 
             # probability of being 0 should be astronomically small because
             # mutations all have positive effects and the untransformed phenotype
             # is multiplicative
-            assert np.all(np.array(mult_phenos) == 1)
+            assert np.all(mult_phenos == 1)
 
         # Now we'll vary the transform parameters
         traits = [
@@ -4026,16 +4061,21 @@ class TestTraits:
                 add1_phenos.append(ind.metadata['per_trait'][1]["phenotype"])
                 add2_phenos.append(ind.metadata['per_trait'][2]["phenotype"])
                 mult_phenos.append(ind.metadata['per_trait'][3]["phenotype"])
+            add1_phenos = np.array(add1_phenos)
+            add2_phenos = np.array(add2_phenos)
+            mult_phenos = np.array(mult_phenos)
 
             # These should be ~ 50/50 --- the mutations all have negative effects,
             # but the slope of the logistic transform is really, really shallow
             assert np.mean(add1_phenos) > 0.25
             assert np.mean(add1_phenos) < 0.75
+            assert np.all((add1_phenos == 0) + (add1_phenos == 1))
 
             # These should have a mean of 0.27 for the parameters we chose assuming
             # that mutation effects are negligible
             assert np.mean(add2_phenos) > 0.02
             assert np.mean(add2_phenos) < 0.52
+            assert np.all((add2_phenos == 0) + (add2_phenos == 1))
 
             # These should have a mean of 0.73 for the parameters we chose
             # assuming that the mutation effects are negligible
