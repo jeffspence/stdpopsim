@@ -1620,7 +1620,9 @@ def slim_makescript(
         printsc("    // persist back to INF starts, in years before present.")
     else:
         printsc("    // The oldest time is determined by the demography.")
-    printsc(f'    defineConstant("_oldest_time_including_traits_model", {max_tm_time});')
+    printsc(
+        f'    defineConstant("_oldest_time_including_traits_model", {max_tm_time});'
+    )
 
     # Epoch times.
     printsc("    // Time of epoch boundaries, in years before present.")

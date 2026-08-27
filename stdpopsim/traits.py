@@ -1257,8 +1257,7 @@ class TraitsDebugger:
 
     def _burn_in_note(self):
         oldest_time, oldest_id = _find_oldest_event(
-            self.traits_model,
-            self._demography_debugger
+            self.traits_model, self._demography_debugger
         )
         if oldest_id == "":
             return oldest_id

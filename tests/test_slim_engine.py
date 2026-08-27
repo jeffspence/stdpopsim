@@ -3429,17 +3429,13 @@ class TestTraits:
     demography.add_population(name="A", initial_size=100)
     demography.add_population(name="B", initial_size=50)
     demography.add_population(name="anc", initial_size=20)
-    demography.add_population_split(
-        time=30,
-        derived=["A", "B"],
-        ancestral="anc"
-    )
+    demography.add_population_split(time=30, derived=["A", "B"], ancestral="anc")
     demography = stdpopsim.DemographicModel(
         id="traits_test_model",
         description="a model for testing traits",
         long_description="aa mmooddeell ffoorr tteessttiinngg ttrraaiittss",
         generation_time=2,
-        model=demography
+        model=demography,
     )
     engine = stdpopsim.get_engine("slim")
     species = stdpopsim.get_species("HomSap")
@@ -3453,7 +3449,7 @@ class TestTraits:
         mt2 = stdpopsim.MutationType(
             trait_ids=["add1", "add2"],
             distribution_type="mvn",
-            distribution_args=[np.zeros(2), 1e-4*np.eye(2)]
+            distribution_args=[np.zeros(2), 1e-4 * np.eye(2)],
         )
         mt3 = stdpopsim.MutationType(
             trait_ids=["mult"], distribution_type="e", distribution_args=[1]
@@ -3503,7 +3499,7 @@ class TestTraits:
         mt2 = stdpopsim.MutationType(
             trait_ids=["add1", "add2"],
             distribution_type="mvn",
-            distribution_args=[np.zeros(2), 1e-4*np.eye(2)]
+            distribution_args=[np.zeros(2), 1e-4 * np.eye(2)],
         )
         mt3 = stdpopsim.MutationType(
             trait_ids=["mult"], distribution_type="e", distribution_args=[1]
@@ -3604,7 +3600,7 @@ class TestTraits:
         mt1 = stdpopsim.MutationType(
             trait_ids=["add1", "add2"],
             distribution_type="mvn",
-            distribution_args=[np.zeros(2), 1e-4*np.eye(2)]
+            distribution_args=[np.zeros(2), 1e-4 * np.eye(2)],
         )
         mt2 = stdpopsim.MutationType(
             trait_ids=["mult"], distribution_type="e", distribution_args=[1]
@@ -3618,7 +3614,7 @@ class TestTraits:
         ts = self.engine.simulate(
             self.demography, contig, samples={"A": 3}, traits_model=tm, seed=7
         )
-        assert ts.metadata['SLiM']['tick'] == 231
+        assert ts.metadata["SLiM"]["tick"] == 231
 
         tm.add_environment(
             id="env1",
@@ -3630,7 +3626,7 @@ class TestTraits:
         ts = self.engine.simulate(
             self.demography, contig, samples={"A": 3}, traits_model=tm, seed=7
         )
-        assert ts.metadata['SLiM']['tick'] == 231
+        assert ts.metadata["SLiM"]["tick"] == 231
 
         tm.add_environment(
             id="env2",
@@ -3638,12 +3634,12 @@ class TestTraits:
             distribution_type="mvn",
             distribution_args=[np.zeros(2), np.eye(2)],
             time_intervals=[(0, float("inf"))],
-            population_list=["A"]
+            population_list=["A"],
         )
         ts = self.engine.simulate(
             self.demography, contig, samples={"A": 3}, traits_model=tm, seed=7
         )
-        assert ts.metadata['SLiM']['tick'] == 231
+        assert ts.metadata["SLiM"]["tick"] == 231
 
         tm.add_environment(
             id="env3",
@@ -3651,12 +3647,12 @@ class TestTraits:
             distribution_type="mvn",
             distribution_args=[np.zeros(2), np.eye(2)],
             time_intervals=[(30, float("inf"))],
-            population_list=["anc"]
+            population_list=["anc"],
         )
         ts = self.engine.simulate(
             self.demography, contig, samples={"A": 3}, traits_model=tm, seed=7
         )
-        assert ts.metadata['SLiM']['tick'] == 231
+        assert ts.metadata["SLiM"]["tick"] == 231
 
         tm.add_environment(
             id="env4",
@@ -3668,7 +3664,7 @@ class TestTraits:
         ts = self.engine.simulate(
             self.demography, contig, samples={"A": 3}, traits_model=tm, seed=7
         )
-        assert ts.metadata['SLiM']['tick'] == 251
+        assert ts.metadata["SLiM"]["tick"] == 251
 
         tm.add_environment(
             id="env5",
@@ -3676,12 +3672,12 @@ class TestTraits:
             distribution_type="mvn",
             distribution_args=[np.zeros(2), np.eye(2)],
             time_intervals=[(50, 70)],
-            population_list=["anc"]
+            population_list=["anc"],
         )
         ts = self.engine.simulate(
             self.demography, contig, samples={"A": 3}, traits_model=tm, seed=7
         )
-        assert ts.metadata['SLiM']['tick'] == 271
+        assert ts.metadata["SLiM"]["tick"] == 271
 
         tm = stdpopsim.TraitsModel(traits=self.traits)
         tm.add_fitness_function(
@@ -3694,7 +3690,7 @@ class TestTraits:
         ts = self.engine.simulate(
             self.demography, contig, samples={"A": 3}, traits_model=tm, seed=7
         )
-        assert ts.metadata['SLiM']['tick'] == 231
+        assert ts.metadata["SLiM"]["tick"] == 231
 
         tm.add_fitness_function(
             id="fit2",
@@ -3702,12 +3698,12 @@ class TestTraits:
             function_type="gaussian",
             function_args=[np.zeros(2), np.eye(2)],
             time_intervals=[(0, float("inf"))],
-            population_list=["A"]
+            population_list=["A"],
         )
         ts = self.engine.simulate(
             self.demography, contig, samples={"A": 3}, traits_model=tm, seed=7
         )
-        assert ts.metadata['SLiM']['tick'] == 231
+        assert ts.metadata["SLiM"]["tick"] == 231
 
         tm.add_fitness_function(
             id="fit3",
@@ -3715,12 +3711,12 @@ class TestTraits:
             function_type="gaussian",
             function_args=[np.zeros(2), np.eye(2)],
             time_intervals=[(30, float("inf"))],
-            population_list=["anc"]
+            population_list=["anc"],
         )
         ts = self.engine.simulate(
             self.demography, contig, samples={"A": 3}, traits_model=tm, seed=7
         )
-        assert ts.metadata['SLiM']['tick'] == 231
+        assert ts.metadata["SLiM"]["tick"] == 231
 
         tm.add_fitness_function(
             id="fit4",
@@ -3732,7 +3728,7 @@ class TestTraits:
         ts = self.engine.simulate(
             self.demography, contig, samples={"A": 3}, traits_model=tm, seed=7
         )
-        assert ts.metadata['SLiM']['tick'] == 251
+        assert ts.metadata["SLiM"]["tick"] == 251
 
         tm.add_fitness_function(
             id="fit5",
@@ -3740,12 +3736,12 @@ class TestTraits:
             function_type="gaussian",
             function_args=[np.zeros(2), np.eye(2)],
             time_intervals=[(50, 70)],
-            population_list=["anc"]
+            population_list=["anc"],
         )
         ts = self.engine.simulate(
             self.demography, contig, samples={"A": 3}, traits_model=tm, seed=7
         )
-        assert ts.metadata['SLiM']['tick'] == 271
+        assert ts.metadata["SLiM"]["tick"] == 271
 
     # TODO
     def test_environments(self):
@@ -3754,32 +3750,23 @@ class TestTraits:
     def test_trait_transformation_threshold(self):
         traits = [
             stdpopsim.Trait(
-                id="add1",
-                type="additive",
-                transform="threshold",
-                transform_args=[0]
+                id="add1", type="additive", transform="threshold", transform_args=[0]
             ),
             stdpopsim.Trait(
-                id="add2",
-                type="additive",
-                transform="threshold",
-                transform_args=[0]
+                id="add2", type="additive", transform="threshold", transform_args=[0]
             ),
             stdpopsim.Trait(
                 id="mult",
                 type="multiplicative",
                 transform="threshold",
-                transform_args=[0]
+                transform_args=[0],
             ),
         ]
         tm = stdpopsim.TraitsModel(traits)
         mt1 = stdpopsim.MutationType(
             trait_ids=["add1", "add2"],
             distribution_type="mvn",
-            distribution_args=[
-                np.array([-1e-15, 1e-15]),
-                1e-34*np.eye(2)
-            ]
+            distribution_args=[np.array([-1e-15, 1e-15]), 1e-34 * np.eye(2)],
         )
         mt2 = stdpopsim.MutationType(
             trait_ids=["mult"], distribution_type="e", distribution_args=[1]
@@ -3793,11 +3780,7 @@ class TestTraits:
         # run 5 simulations to test really well
         for i in range(5):
             ts = self.engine.simulate(
-                self.demography,
-                contig,
-                samples={"A": 100},
-                traits_model=tm,
-                seed=7+i
+                self.demography, contig, samples={"A": 100}, traits_model=tm, seed=7 + i
             )
 
             assert ts.metadata["SLiM"]["traits"][0]["name"] == "fitnessT"
@@ -3810,10 +3793,10 @@ class TestTraits:
             mult_phenos = []
             for ind in ts.individuals():
                 # no direct effects on fitness
-                assert ind.metadata['per_trait'][0]["phenotype"] == 1.
-                add1_phenos.append(ind.metadata['per_trait'][1]["phenotype"])
-                add2_phenos.append(ind.metadata['per_trait'][2]["phenotype"])
-                mult_phenos.append(ind.metadata['per_trait'][3]["phenotype"])
+                assert ind.metadata["per_trait"][0]["phenotype"] == 1.0
+                add1_phenos.append(ind.metadata["per_trait"][1]["phenotype"])
+                add2_phenos.append(ind.metadata["per_trait"][2]["phenotype"])
+                mult_phenos.append(ind.metadata["per_trait"][3]["phenotype"])
             add1_phenos = np.array(add1_phenos)
             add2_phenos = np.array(add2_phenos)
             mult_phenos = np.array(mult_phenos)
@@ -3838,16 +3821,13 @@ class TestTraits:
                 transform_args=[-1],
             ),
             stdpopsim.Trait(
-                id="add2",
-                type="additive",
-                transform="threshold",
-                transform_args=[0]
+                id="add2", type="additive", transform="threshold", transform_args=[0]
             ),
             stdpopsim.Trait(
                 id="mult",
                 type="multiplicative",
                 transform="threshold",
-                transform_args=[2]
+                transform_args=[2],
             ),
         ]
         tm = stdpopsim.TraitsModel(traits)
@@ -3855,15 +3835,12 @@ class TestTraits:
             id="env",
             trait_ids=["add1", "add2"],
             distribution_type="mvn",
-            distribution_args=[np.zeros(2), np.eye(2)]
+            distribution_args=[np.zeros(2), np.eye(2)],
         )
         mt1 = stdpopsim.MutationType(
             trait_ids=["add1", "add2"],
             distribution_type="mvn",
-            distribution_args=[
-                np.array([0., 0.]),
-                1e-20*np.eye(2)
-            ]
+            distribution_args=[np.array([0.0, 0.0]), 1e-20 * np.eye(2)],
         )
         mt2 = stdpopsim.MutationType(
             trait_ids=["mult"], distribution_type="e", distribution_args=[1e-40]
@@ -3877,11 +3854,7 @@ class TestTraits:
         # run 5 simulations to test really well
         for i in range(5):
             ts = self.engine.simulate(
-                self.demography,
-                contig,
-                samples={"A": 100},
-                traits_model=tm,
-                seed=7+i
+                self.demography, contig, samples={"A": 100}, traits_model=tm, seed=7 + i
             )
 
             assert ts.metadata["SLiM"]["traits"][0]["name"] == "fitnessT"
@@ -3894,10 +3867,10 @@ class TestTraits:
             mult_phenos = []
             for ind in ts.individuals():
                 # no direct effects on fitness
-                assert ind.metadata['per_trait'][0]["phenotype"] == 1.
-                add1_phenos.append(ind.metadata['per_trait'][1]["phenotype"])
-                add2_phenos.append(ind.metadata['per_trait'][2]["phenotype"])
-                mult_phenos.append(ind.metadata['per_trait'][3]["phenotype"])
+                assert ind.metadata["per_trait"][0]["phenotype"] == 1.0
+                add1_phenos.append(ind.metadata["per_trait"][1]["phenotype"])
+                add2_phenos.append(ind.metadata["per_trait"][2]["phenotype"])
+                mult_phenos.append(ind.metadata["per_trait"][3]["phenotype"])
             add1_phenos = np.array(add1_phenos)
             add2_phenos = np.array(add2_phenos)
             mult_phenos = np.array(mult_phenos)
@@ -3920,32 +3893,23 @@ class TestTraits:
     def test_trait_transformation_liability(self):
         traits = [
             stdpopsim.Trait(
-                id="add1",
-                type="additive",
-                transform="liability",
-                transform_args=[0, 1]
+                id="add1", type="additive", transform="liability", transform_args=[0, 1]
             ),
             stdpopsim.Trait(
-                id="add2",
-                type="additive",
-                transform="liability",
-                transform_args=[0, 1]
+                id="add2", type="additive", transform="liability", transform_args=[0, 1]
             ),
             stdpopsim.Trait(
                 id="mult",
                 type="multiplicative",
                 transform="liability",
-                transform_args=[0, 1]
+                transform_args=[0, 1],
             ),
         ]
         tm = stdpopsim.TraitsModel(traits)
         mt1 = stdpopsim.MutationType(
             trait_ids=["add1", "add2"],
             distribution_type="mvn",
-            distribution_args=[
-                np.array([-17., 0.]),
-                1e-20*np.eye(2)
-            ]
+            distribution_args=[np.array([-17.0, 0.0]), 1e-20 * np.eye(2)],
         )
         mt2 = stdpopsim.MutationType(
             trait_ids=["mult"], distribution_type="e", distribution_args=[1]
@@ -3959,11 +3923,7 @@ class TestTraits:
         # run 5 simulations to test really well
         for i in range(5):
             ts = self.engine.simulate(
-                self.demography,
-                contig,
-                samples={"A": 100},
-                traits_model=tm,
-                seed=7+i
+                self.demography, contig, samples={"A": 100}, traits_model=tm, seed=7 + i
             )
 
             assert ts.metadata["SLiM"]["traits"][0]["name"] == "fitnessT"
@@ -3976,10 +3936,10 @@ class TestTraits:
             mult_phenos = []
             for ind in ts.individuals():
                 # no direct effects on fitness
-                assert ind.metadata['per_trait'][0]["phenotype"] == 1.
-                add1_phenos.append(ind.metadata['per_trait'][1]["phenotype"])
-                add2_phenos.append(ind.metadata['per_trait'][2]["phenotype"])
-                mult_phenos.append(ind.metadata['per_trait'][3]["phenotype"])
+                assert ind.metadata["per_trait"][0]["phenotype"] == 1.0
+                add1_phenos.append(ind.metadata["per_trait"][1]["phenotype"])
+                add2_phenos.append(ind.metadata["per_trait"][2]["phenotype"])
+                mult_phenos.append(ind.metadata["per_trait"][3]["phenotype"])
             add1_phenos = np.array(add1_phenos)
             add2_phenos = np.array(add2_phenos)
             mult_phenos = np.array(mult_phenos)
@@ -4004,29 +3964,23 @@ class TestTraits:
                 id="add1",
                 type="additive",
                 transform="liability",
-                transform_args=[0, 1e-20]
+                transform_args=[0, 1e-20],
             ),
             stdpopsim.Trait(
-                id="add2",
-                type="additive",
-                transform="liability",
-                transform_args=[1, 1]
+                id="add2", type="additive", transform="liability", transform_args=[1, 1]
             ),
             stdpopsim.Trait(
                 id="mult",
                 type="multiplicative",
                 transform="liability",
-                transform_args=[-1, 1]
+                transform_args=[-1, 1],
             ),
         ]
         tm = stdpopsim.TraitsModel(traits)
         mt1 = stdpopsim.MutationType(
             trait_ids=["add1", "add2"],
             distribution_type="mvn",
-            distribution_args=[
-                np.array([-1., 0.]),
-                1e-20*np.eye(2)
-            ]
+            distribution_args=[np.array([-1.0, 0.0]), 1e-20 * np.eye(2)],
         )
         mt2 = stdpopsim.MutationType(
             trait_ids=["mult"], distribution_type="e", distribution_args=[1e-40]
@@ -4040,11 +3994,7 @@ class TestTraits:
         # run 5 simulations to test really well
         for i in range(5):
             ts = self.engine.simulate(
-                self.demography,
-                contig,
-                samples={"A": 100},
-                traits_model=tm,
-                seed=7+i
+                self.demography, contig, samples={"A": 100}, traits_model=tm, seed=7 + i
             )
 
             assert ts.metadata["SLiM"]["traits"][0]["name"] == "fitnessT"
@@ -4057,10 +4007,10 @@ class TestTraits:
             mult_phenos = []
             for ind in ts.individuals():
                 # no direct effects on fitness
-                assert ind.metadata['per_trait'][0]["phenotype"] == 1.
-                add1_phenos.append(ind.metadata['per_trait'][1]["phenotype"])
-                add2_phenos.append(ind.metadata['per_trait'][2]["phenotype"])
-                mult_phenos.append(ind.metadata['per_trait'][3]["phenotype"])
+                assert ind.metadata["per_trait"][0]["phenotype"] == 1.0
+                add1_phenos.append(ind.metadata["per_trait"][1]["phenotype"])
+                add2_phenos.append(ind.metadata["per_trait"][2]["phenotype"])
+                mult_phenos.append(ind.metadata["per_trait"][3]["phenotype"])
             add1_phenos = np.array(add1_phenos)
             add2_phenos = np.array(add2_phenos)
             mult_phenos = np.array(mult_phenos)
@@ -4097,7 +4047,7 @@ class TestTraits:
         mt1 = stdpopsim.MutationType(
             trait_ids=["add1", "add2"],
             distribution_type="mvn",
-            distribution_args=[-3*np.ones(2), 0.01*np.eye(2)]
+            distribution_args=[-3 * np.ones(2), 0.01 * np.eye(2)],
         )
         mt2 = stdpopsim.MutationType(
             trait_ids=["mult"], distribution_type="e", distribution_args=[1]
@@ -4114,7 +4064,7 @@ class TestTraits:
             samples={"A": 3},
             traits_model=tm,
             seed=7,
-            keep_mutation_ids_as_alleles=True
+            keep_mutation_ids_as_alleles=True,
         )
         assert ts.metadata["SLiM"]["traits"][0]["name"] == "fitnessT"
         assert ts.metadata["SLiM"]["traits"][1]["name"] == "add1T"
@@ -4166,9 +4116,9 @@ class TestTraits:
             trait_ids=["add1", "add2"],
             distribution_type="mvn",
             distribution_args=[
-                np.array([17., -17.]),
-                0.009 * np.ones((2, 2)) + 0.001*np.eye(2)
-            ]
+                np.array([17.0, -17.0]),
+                0.009 * np.ones((2, 2)) + 0.001 * np.eye(2),
+            ],
         )
         mt2 = stdpopsim.MutationType(
             trait_ids=["mult"], distribution_type="e", distribution_args=[1]
@@ -4185,7 +4135,7 @@ class TestTraits:
             samples={"A": 3},
             traits_model=tm,
             seed=7,
-            keep_mutation_ids_as_alleles=True
+            keep_mutation_ids_as_alleles=True,
         )
         assert ts.metadata["SLiM"]["traits"][0]["name"] == "fitnessT"
         assert ts.metadata["SLiM"]["traits"][1]["name"] == "add1T"
