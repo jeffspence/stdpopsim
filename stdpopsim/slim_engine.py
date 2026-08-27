@@ -310,7 +310,7 @@ _slim_main = """
         "G0",
         asInteger(
             max(c(
-                _oldest_traits_model_time / generation_time / Q,
+                _oldest_time_including_traits_model / generation_time / Q,
                 max(_T) / generation_time / Q
             ))
             + G_start)
@@ -1613,21 +1613,14 @@ def slim_makescript(
     # more anciently than the most ancient time in the demographic model, we
     # would want to do our burn-in before even that time. I.e., we don't want
     # these things to start applying in the middle of burn-in.
-    max_tm_time = [0]
-    for condition in traits_model.fitness_functions + traits_model.environments:
-        if condition.time_intervals is None:
-            continue
-        for interval in condition.time_intervals:
-            if np.isfinite(interval[1]):
-                # We multiply by the generation time to convert this to year
-                # here to be consistent with the demography times that we put
-                # into SLiM.
-                max_tm_time.append(interval[1] * demographic_model.generation_time)
-            max_tm_time.append(interval[0] * demographic_model.generation_time)
-    max_tm_time = max(max_tm_time)
-    printsc("    // Time at which the oldest fitness function that does not")
-    printsc("    // persist back to INF starts, in years before present.")
-    printsc(f'    defineConstant("_oldest_traits_model_time", {max_tm_time});')
+    max_tm_time, event_id = stdpopsim.traits._find_oldest_event(traits_model, dd)
+    max_tm_time *= demographic_model.generation_time
+    if event_id != "":
+        printsc("    // Time at which the oldest fitness function that does not")
+        printsc("    // persist back to INF starts, in years before present.")
+    else:
+        printsc("    // The oldest time is determined by the demography.")
+    printsc(f'    defineConstant("_oldest_time_including_traits_model", {max_tm_time});')
 
     # Epoch times.
     printsc("    // Time of epoch boundaries, in years before present.")

@@ -56,6 +56,26 @@ def _check_trait_ids(trait_ids):
         raise ValueError("Trait IDs must be a nonempty list of unique strings.")
 
 
+def _find_oldest_event(traits_model, demography_debugger):
+    # Returns a tuple containing (time_of_oldest_event, condition_id) where
+    # time_of_oldest_event is the time (in generations) of the oldest (finite)
+    # event that occurs either in the demography or in one of the fitness
+    # functions or environments.  condition_id will be the str ID of the
+    # fitness or function triggering the oldest event or will be the empty
+    # string if the oldest event is driven by the demography.
+    oldest_event = max(e.start_time for e in demography_debugger.epochs)
+    oldest_time = oldest_event
+    oldest_id = ""
+    conditions = traits_model.environments + traits_model.fitness_functions
+    for condition in conditions:
+        for interval in condition.time_intervals:
+            for t in interval:
+                if np.isfinite(t) and t > oldest_time:
+                    oldest_time = t
+                    oldest_id = condition.id
+    return (oldest_time, oldest_id)
+
+
 class TraitsModel(object):
     def __init__(self, traits=None):
         """
@@ -1236,17 +1256,13 @@ class TraitsDebugger:
         return _text_table(caption, column_titles, ">>><^^", data)
 
     def _burn_in_note(self):
+        oldest_time, oldest_id = _find_oldest_event(
+            self.traits_model,
+            self._demography_debugger
+        )
+        if oldest_id == "":
+            return oldest_id
         oldest_event = max(e.start_time for e in self._demography_debugger.epochs)
-        oldest_time = oldest_event
-        oldest_id = None
-        for condition in self._conditions():
-            for interval in condition.time_intervals:
-                for t in interval:
-                    if np.isfinite(t) and t > oldest_time:
-                        oldest_time = t
-                        oldest_id = condition.id
-        if oldest_id is None:
-            return ""
         return (
             f"Burn-in ends {oldest_time:.3g} generations ago, set by "
             f"'{oldest_id}' (the oldest demographic event is "
