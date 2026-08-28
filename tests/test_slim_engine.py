@@ -4033,11 +4033,66 @@ class TestTraits:
             tol = 5*np.sqrt((variances[k][0]*variances[k][1] + v**2)/num_inds)
             assert obs >= v - tol and obs <= v + tol
 
-        # TODO: do two time intervals
+        # finally a population-specific, time-specific one
+        tm = stdpopsim.TraitsModel(traits=self.traits)
+        tm.add_environment(
+            id="env1",
+            trait_ids=["add1", "add2"],
+            distribution_type="mvn",
+            distribution_args=[
+                np.array([-100, 100]),
+                np.eye(2) * np.array([1, 100])
+            ],
+            population_list=["A", "B"],
+            time_intervals=[[29, 30], [1, 10]]
+        )
+        ts = self.engine.simulate(
+            self.demography, contig, samples=samples, traits_model=tm, seed=7
+        )
+        mean_values = {}
+        variances = {}
+        observations = {}
+        for p, t in pop_time_pairs:
+            if (p == "A" or p == "B") and t == 29:
+                mean_values[(p, t)] = (-100, 100)
+                variances[(p, t)] = (1, 100)
+            else:
+                mean_values[(p, t)] = (0, 0)
+                variances[(p, t)] = (0, 0)
+            observations[(p, t)] = []
+        for ind in ts.individuals():
+            p = ["A", "B", "anc"][ind.metadata["subpopulation"]]
+            t = ts.node(ind.nodes[0]).time
+            if (p == "A" or p == "B") and t == 29:
+                assert ind.metadata['per_trait'][1]["phenotype"] < 0
+                assert ind.metadata['per_trait'][2]["phenotype"] > 0
+            else:
+                assert ind.metadata['per_trait'][1]["phenotype"] == 0
+                assert ind.metadata['per_trait'][2]["phenotype"] == 0
+            observations[(p, t)].append(
+                (
+                    ind.metadata['per_trait'][1]["phenotype"],
+                    ind.metadata['per_trait'][2]["phenotype"]
+                )
+            )
+        for k, v in mean_values.items():
+            obs1 = np.mean(list(zip(*observations[k]))[0])
+            obs2 = np.mean(list(zip(*observations[k]))[1])
+            num_inds = len(observations[k])
+            tol1 = 5*np.sqrt(variances[k][0]/num_inds)
+            tol2 = 5*np.sqrt(variances[k][1]/num_inds)
 
-        # TODO: do two populations
+            assert obs1 >= v[0] - tol1 and obs1 <= v[0] + tol1
+            assert obs2 >= v[1] - tol2 and obs2 <= v[1] + tol2
 
-        # TODO: do a population-specific time-specific one
+        for k, v in variances.items():
+            obs1 = np.var(list(zip(*observations[k]))[0])
+            obs2 = np.var(list(zip(*observations[k]))[1])
+            num_inds = len(observations[k])
+            tol1 = 5*np.sqrt(2*variances[k][0]**2/num_inds)
+            tol2 = 5*np.sqrt(2*variances[k][1]**2/num_inds)
+            assert obs1 >= v[0] - tol1 and obs1 <= v[0] + tol1
+            assert obs2 >= v[1] - tol2 and obs2 <= v[1] + tol2
 
     def test_trait_transformation_threshold(self):
         traits = [
