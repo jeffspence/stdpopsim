@@ -555,15 +555,11 @@ _slim_main = """
         population_id = env_pops[i];
         community.registerLateEvent(NULL,
             "{ if(check_if_in_interval( env_intervals.getValue(" + i + "))){"
-            +     "if (isNULL(" + population_id + ")) {"
-            +         "affected_inds = sim.subpopulations.individuals;"
-            +     "} else {"
-                      // look the population up by id, since it may not
-                      // exist during the whole interval
-            +         "sp = sim.subpopulations[sim.subpopulations.id == "
-            +             population_id + "];"
-            +         "affected_inds = sp.individuals;"
-            +     "}"
+                  // look the population up by id, since it may not
+                  // exist during the whole interval
+            +     "sp = sim.subpopulations[sim.subpopulations.id == "
+            +         population_id + "];"
+            +     "affected_inds = sp.individuals;"
             +     "if (size(affected_inds) == 0) return;"
             +     "if (env_dist[" + i + "] == 'mvn') {"
             +         "dparams = env_params.getValue(" + i + ");"
@@ -1245,6 +1241,30 @@ def slim_makescript(
                         for k in range(dd.num_populations):
                             migration_matrices[j][k][lm.source] = 0
                             migration_matrices[j][lm.source][k] = 0
+
+    # For old-style models we need to manually check that environments and
+    # fitness functions are defined in a way that is consistent with the
+    # demography (i.e., only apply to populations that actually exist).
+    slim_existence = {p.id: [] for p in demographic_model.model.populations}
+    for i, epoch in reversed(list(enumerate(epochs))):  # these were reversed above
+        for p in demographic_model.model.populations:
+            if N[p.id, i] > 0:
+                intervals = slim_existence[p.id]
+                if intervals:
+                    assert intervals[-1][1] <= epoch.start_time
+                if intervals and intervals[-1][1] == epoch.start_time:
+                    intervals[-1][1] = epoch.end_time
+                else:
+                    intervals.append([epoch.start_time, epoch.end_time])
+    new_envs = []
+    for env in traits_model.environments:
+        new_envs.extend(stdpopsim.traits._standardize_condition(env, slim_existence))
+    traits_model.environments = new_envs
+
+    new_ffs = []
+    for ff in traits_model.fitness_functions:
+        new_ffs.extend(stdpopsim.traits._standardize_condition(ff, slim_existence))
+    traits_model.fitness_functions = new_ffs
 
     drawn_mutations = []
     fitness_callbacks = []

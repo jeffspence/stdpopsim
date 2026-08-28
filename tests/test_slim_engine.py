@@ -3440,6 +3440,92 @@ class TestTraits:
     engine = stdpopsim.get_engine("slim")
     species = stdpopsim.get_species("HomSap")
 
+    def test_slim_existence_alignment(self):
+        tm = stdpopsim.TraitsModel(traits=self.traits)
+        tm.add_environment(
+            id="env1",
+            trait_ids=["add1", "add2"],
+            distribution_type="mvn",
+            distribution_args=[np.zeros(2), np.eye(2)],
+        )
+        tm.add_fitness_function(
+            id="fit1",
+            trait_ids=["add1"],
+            function_type="gaussian",
+            function_args=[np.zeros(1), np.eye(1)],
+        )
+        mt1 = stdpopsim.MutationType(
+            trait_ids=["add1", "add2"],
+            distribution_type="mvn",
+            distribution_args=[np.zeros(2), 1e-4 * np.eye(2)],
+        )
+        mt2 = stdpopsim.MutationType(
+            trait_ids=["mult"], distribution_type="e", distribution_args=[1]
+        )
+        old_style_demography = self.species.get_demographic_model("OutOfAfrica_3G09")
+
+        contig = self.species.get_contig("chr1", left=0, right=100)
+        dme = stdpopsim.DistributionOfMutationEffects(
+            mutation_types=[mt1, mt2], proportions=[0.4, 0.6]
+        )
+        contig.add_dme(intervals=np.array([[0, 100]]), DME=dme)
+        out, _ = capture_output(
+            self.engine.simulate,
+            old_style_demography,
+            contig,
+            samples={"YRI": 3},
+            traits_model=tm,
+            seed=7,
+            slim_script=True,
+        )
+        # check that CHB was trimmed to end 848 generations ago (when it
+        # becomes non-existent in the model)
+        # we will strip all whitespace from the relevant check strings and the
+        # SLiM output.
+        env_str = "env_intervals.setValue(2,array(c(c(0.0,848.0)),c(1,2)));"
+        fit_str = "fit_func_intervals.setValue(2,array(c(c(0.0,848.0)),c(1,2)));"
+        assert env_str in re.sub(r"\s+", "", out)
+        assert fit_str in re.sub(r"\s+", "", out)
+
+        tm = stdpopsim.TraitsModel(traits=self.traits)
+        tm.add_environment(
+            id="env1",
+            trait_ids=["add1", "add2"],
+            distribution_type="mvn",
+            distribution_args=[np.zeros(2), np.eye(2)],
+            population_list=["CHB"],
+            time_intervals=[[0, 100000]],
+        )
+        with pytest.raises(ValueError, match="An environment or a fitness"):
+            out, _ = capture_output(
+                self.engine.simulate,
+                old_style_demography,
+                contig,
+                samples={"YRI": 3},
+                traits_model=tm,
+                seed=7,
+                slim_script=True,
+            )
+        tm = stdpopsim.TraitsModel(traits=self.traits)
+        tm.add_fitness_function(
+            id="fit1",
+            trait_ids=["add1"],
+            function_type="gaussian",
+            function_args=[np.zeros(1), np.eye(1)],
+            population_list=["CHB"],
+            time_intervals=[[0, 100000]],
+        )
+        with pytest.raises(ValueError, match="An environment or a fitness"):
+            out, _ = capture_output(
+                self.engine.simulate,
+                old_style_demography,
+                contig,
+                samples={"YRI": 3},
+                traits_model=tm,
+                seed=7,
+                slim_script=True,
+            )
+
     def test_traits_defined(self):
         tm = stdpopsim.TraitsModel(traits=self.traits)
 
@@ -3455,7 +3541,7 @@ class TestTraits:
             trait_ids=["mult"], distribution_type="e", distribution_args=[1]
         )
 
-        contig = self.species.get_contig("chr1", left=0, right=100e6)
+        contig = self.species.get_contig("chr1", left=0, right=100)
         dme = stdpopsim.DistributionOfMutationEffects(
             mutation_types=[mt1, mt2, mt3], proportions=[0.3, 0.6, 0.1]
         )
