@@ -1029,7 +1029,7 @@ def _standardize_condition(condition, valid_intervals):
         if condition.time_intervals is None:
             standardized.extend(valid_intervals[p])
         else:
-            for interval in condition.time_intervals:
+            for interval in sorted(condition.time_intervals):
                 is_valid = False
                 if interval[1] != float("inf"):
                     # If interval is finite, we must identify
