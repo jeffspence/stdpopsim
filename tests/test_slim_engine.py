@@ -3482,8 +3482,8 @@ class TestTraits:
         # becomes non-existent in the model)
         # we will strip all whitespace from the relevant check strings and the
         # SLiM output.
-        env_str = "env_intervals.setValue(2,array(c(c(0.0,848.0)),c(1,2)));"
-        fit_str = "fit_func_intervals.setValue(2,array(c(c(0.0,848.0)),c(1,2)));"
+        env_str = "env_intervals.setValue(2,array(c(c(0.0),c(848.0)),c(1,2)));"
+        fit_str = "fit_func_intervals.setValue(2,array(c(c(0.0),c(848.0)),c(1,2)));"
         assert env_str in re.sub(r"\s+", "", out)
         assert fit_str in re.sub(r"\s+", "", out)
 
@@ -3829,7 +3829,6 @@ class TestTraits:
         )
         assert ts.metadata["SLiM"]["tick"] == 271
 
-    # TODO
     def test_environments(self):
         samples = [
             msprime.SampleSet(100, "A", 0, 2),
@@ -4069,6 +4068,67 @@ class TestTraits:
             else:
                 assert ind.metadata['per_trait'][1]["phenotype"] == 0
                 assert ind.metadata['per_trait'][2]["phenotype"] == 0
+            observations[(p, t)].append(
+                (
+                    ind.metadata['per_trait'][1]["phenotype"],
+                    ind.metadata['per_trait'][2]["phenotype"]
+                )
+            )
+        for k, v in mean_values.items():
+            obs1 = np.mean(list(zip(*observations[k]))[0])
+            obs2 = np.mean(list(zip(*observations[k]))[1])
+            num_inds = len(observations[k])
+            tol1 = 5*np.sqrt(variances[k][0]/num_inds)
+            tol2 = 5*np.sqrt(variances[k][1]/num_inds)
+
+            assert obs1 >= v[0] - tol1 and obs1 <= v[0] + tol1
+            assert obs2 >= v[1] - tol2 and obs2 <= v[1] + tol2
+
+        for k, v in variances.items():
+            obs1 = np.var(list(zip(*observations[k]))[0])
+            obs2 = np.var(list(zip(*observations[k]))[1])
+            num_inds = len(observations[k])
+            tol1 = 5*np.sqrt(2*variances[k][0]**2/num_inds)
+            tol2 = 5*np.sqrt(2*variances[k][1]**2/num_inds)
+            assert obs1 >= v[0] - tol1 and obs1 <= v[0] + tol1
+            assert obs2 >= v[1] - tol2 and obs2 <= v[1] + tol2
+
+        # Two environments should add
+        tm = stdpopsim.TraitsModel(traits=self.traits)
+        tm.add_environment(
+            id="env1",
+            trait_ids=["add1", "add2"],
+            distribution_type="mvn",
+            distribution_args=[
+                np.array([0, 100]),
+                np.eye(2) * np.array([0.5, 1])
+            ]
+        )
+        tm.add_environment(
+            id="env2",
+            trait_ids=["add1", "add2"],
+            distribution_type="mvn",
+            distribution_args=[
+                np.array([-100, 0]),
+                np.eye(2) * np.array([0.5, 99])
+            ]
+        )
+
+        ts = self.engine.simulate(
+            self.demography, contig, samples=samples, traits_model=tm, seed=7
+        )
+        mean_values = {}
+        variances = {}
+        observations = {}
+        for p, t in pop_time_pairs:
+            mean_values[(p, t)] = (-100, 100)
+            variances[(p, t)] = (1, 100)
+            observations[(p, t)] = []
+        for ind in ts.individuals():
+            p = ["A", "B", "anc"][ind.metadata["subpopulation"]]
+            t = ts.node(ind.nodes[0]).time
+            assert ind.metadata['per_trait'][1]["phenotype"] < 0
+            assert ind.metadata['per_trait'][2]["phenotype"] > 0
             observations[(p, t)].append(
                 (
                     ind.metadata['per_trait'][1]["phenotype"],
@@ -4379,9 +4439,365 @@ class TestTraits:
             assert np.mean(mult_phenos) > 0.48
             assert np.mean(mult_phenos) < 0.98
 
-    # TODO
+    def count_offspring(self, ts):
+        num_offspring = {ind.metadata['pedigree_id'] : 0 for ind in
+                         ts.individuals()}
+        for ind in ts.individuals():
+            p1 = ind.metadata['pedigree_p1']
+            p2 = ind.metadata['pedigree_p2']
+            if p1 in num_offspring:
+                num_offspring[p1] += 1
+            if p2 in num_offspring:
+                num_offspring[p2] += 1
+        return num_offspring
+
     def test_fitness(self):
-        pass
+        # these are paired up in adjacent generations
+        # so that we can estimate the fitness of
+        # individuals based on the number of offspring they have
+        samples = [
+            msprime.SampleSet(100, "A", 0, 2),
+            msprime.SampleSet(100, "A", 1, 2),
+            msprime.SampleSet(100, "A", 28, 2),
+            msprime.SampleSet(100, "A", 29, 2),
+            msprime.SampleSet(50, "B", 0, 2),
+            msprime.SampleSet(50, "B", 1, 2),
+            msprime.SampleSet(50, "B", 28, 2),
+            msprime.SampleSet(50, "B", 29, 2),
+            msprime.SampleSet(20, "anc", 30, 2),
+            msprime.SampleSet(20, "anc", 31, 2)
+        ]
+
+        # this will let us get about half of individuals having phenotype 1 and
+        # half having phenotype 0 for each trait. We'll do this by having no
+        # genetic component, and a symmetric environment. We can then count how
+        # many offspring each individual has to get a rough estimate of
+        # fitness.
+        traits = [
+            stdpopsim.Trait(
+                id="add1", type="additive", transform="threshold", transform_args=[0]
+            ),
+            stdpopsim.Trait(
+                id="add2", type="additive", transform="threshold", transform_args=[0]
+            )
+        ]
+
+        pop_time_pairs = [
+            ("A", 1), ("A", 29), ("B", 1), ("B", 29), ("anc", 31)
+        ]
+
+        contig = self.species.get_contig("chr1", left=0, right=100)
+
+        # First we will test a fitness function that applies everywhere and
+        # always
+        tm = stdpopsim.TraitsModel(traits=traits)
+        # This will result in the following relative fitnesses
+        # (0, 0) 1
+        # (1, 0) 0.6065307
+        # (0, 1) 0.1353353
+        # (1, 1) 0.08208501
+        # So expected number of offspring would be:
+        # (0, 0) 4.386083
+        # (1, 0) 2.660294
+        # (0, 1) 0.5935918
+        # (1, 1) 0.3600316
+        tm.add_fitness_function(
+            id="fit1",
+            trait_ids=["add1", "add2"],
+            function_type="gaussian",
+            function_args=[
+                np.array([0., 0.]),
+                np.eye(2) * np.array([1., 0.25])
+            ]
+        )
+        tm.add_environment(
+            id="env1",
+            trait_ids=["add1", "add2"],
+            distribution_type="mvn",
+            distribution_args=[
+                np.array([0., 0.]),
+                np.eye(2)
+            ]
+        )
+        ts = self.engine.simulate(
+            self.demography, contig, samples=samples, traits_model=tm, seed=7
+        )
+        num_offspring = self.count_offspring(ts)
+        exp_offspring = {}
+        obs_offspring = {}
+        for p, t in pop_time_pairs:
+            exp_offspring[(p, t)] = [
+                4.386083, 2.660294, 0.5935918, 0.3600316
+            ]
+            obs_offspring[(p, t)] = [[], [], [], []]
+        for ind in ts.individuals():
+            p = ["A", "B", "anc"][ind.metadata["subpopulation"]]
+            t = ts.node(ind.nodes[0]).time
+            if (p, t) not in pop_time_pairs:
+                continue
+            pid = ind.metadata['pedigree_id']
+            add1 = ind.metadata['per_trait'][1]["phenotype"]
+            add2 = ind.metadata['per_trait'][2]["phenotype"]
+            obs_offspring[(p, t)][round(add1 + 2*add2)].append(
+                num_offspring[pid]
+            )
+        for k, v in exp_offspring.items():
+            for i in range(4):
+                obs = np.mean(obs_offspring[k][i])
+                # Each one should be approximately Poisson
+                tol = 5*np.sqrt(v[i] / len(obs_offspring[k][i]))
+                assert obs >= v[i] - tol and obs <= v[i] + tol
+
+        # Now we'll do a population-specific one
+        tm = stdpopsim.TraitsModel(traits=traits)
+        # Same fitnesses as before, but we'll swap add2 and add1 to make sure
+        # the order doesn't matter
+        tm.add_fitness_function(
+            id="fit1",
+            trait_ids=["add2", "add1"],
+            function_type="gaussian",
+            function_args=[
+                np.array([0., 0.]),
+                np.eye(2) * np.array([1., 0.25])
+            ],
+            population_list=["B"]
+        )
+        tm.add_environment(
+            id="env1",
+            trait_ids=["add1", "add2"],
+            distribution_type="mvn",
+            distribution_args=[
+                np.array([0., 0.]),
+                np.eye(2)
+            ]
+        )
+        ts = self.engine.simulate(
+            self.demography, contig, samples=samples, traits_model=tm, seed=7
+        )
+        num_offspring = self.count_offspring(ts)
+        exp_offspring = {}
+        obs_offspring = {}
+        for p, t in pop_time_pairs:
+            if p == "B":
+                exp_offspring[(p, t)] = [
+                    4.386083, 2.660294, 0.5935918, 0.3600316
+                ]
+            else:
+                exp_offspring[(p, t)] = [2., 2., 2., 2.]
+            obs_offspring[(p, t)] = [[], [], [], []]
+        for ind in ts.individuals():
+            p = ["A", "B", "anc"][ind.metadata["subpopulation"]]
+            t = ts.node(ind.nodes[0]).time
+            if (p, t) not in pop_time_pairs:
+                continue
+            pid = ind.metadata['pedigree_id']
+            add1 = ind.metadata['per_trait'][1]["phenotype"]
+            add2 = ind.metadata['per_trait'][2]["phenotype"]
+            # we have to swap add1 and add2 here
+            obs_offspring[(p, t)][round(2*add1 + add2)].append(
+                num_offspring[pid]
+            )
+        for k, v in exp_offspring.items():
+            for i in range(4):
+                obs = np.mean(obs_offspring[k][i])
+                # Each one should be approximately Poisson
+                tol = 5*np.sqrt(v[i] / len(obs_offspring[k][i]))
+                assert obs >= v[i] - tol and obs <= v[i] + tol
+
+        # testing a time-specific fitness function
+        tm = stdpopsim.TraitsModel(traits=traits)
+        # This will result in the following relative fitnesses
+        # (0, 0) 0.1353353
+        # (1, 0) 0.08208501
+        # (0, 1) 1
+        # (1, 1) 0.6065307
+        # So expected number of offspring would be:
+        # (0, 0) 0.5935918
+        # (1, 0) 0.3600316
+        # (0, 1) 4.386083
+        # (1, 1) 2.660294
+        tm.add_fitness_function(
+            id="fit1",
+            trait_ids=["add1", "add2"],
+            function_type="gaussian",
+            function_args=[
+                np.array([0., 1.]),
+                np.eye(2) * np.array([1., 0.25])
+            ],
+            time_intervals=[[29, 30], [0, 1]],
+        )
+        tm.add_environment(
+            id="env1",
+            trait_ids=["add1", "add2"],
+            distribution_type="mvn",
+            distribution_args=[
+                np.array([0., 0.]),
+                np.eye(2)
+            ]
+        )
+        ts = self.engine.simulate(
+            self.demography, contig, samples=samples, traits_model=tm, seed=7
+        )
+        num_offspring = self.count_offspring(ts)
+        exp_offspring = {}
+        obs_offspring = {}
+        for p, t in pop_time_pairs:
+            if t == 29:
+                exp_offspring[(p, t)] = [
+                    0.5935918, 0.3600316, 4.386083, 2.660294
+                ]
+            else:
+                exp_offspring[(p, t)] = [2, 2, 2, 2]
+            obs_offspring[(p, t)] = [[], [], [], []]
+        for ind in ts.individuals():
+            p = ["A", "B", "anc"][ind.metadata["subpopulation"]]
+            t = ts.node(ind.nodes[0]).time
+            if (p, t) not in pop_time_pairs:
+                continue
+            pid = ind.metadata['pedigree_id']
+            add1 = ind.metadata['per_trait'][1]["phenotype"]
+            add2 = ind.metadata['per_trait'][2]["phenotype"]
+            obs_offspring[(p, t)][round(add1 + 2*add2)].append(
+                num_offspring[pid]
+            )
+        for k, v in exp_offspring.items():
+            for i in range(4):
+                obs = np.mean(obs_offspring[k][i])
+                # Each one should be approximately Poisson
+                tol = 5*np.sqrt(v[i] / len(obs_offspring[k][i]))
+                assert obs >= v[i] - tol and obs <= v[i] + tol
+
+        # test a population-specific, time-specific fitness function
+        tm = stdpopsim.TraitsModel(traits=traits)
+        # This will result in the following relative fitnesses
+        # (0, 0) 1
+        # (1, 0) 0.1353353
+        # (0, 1) 1
+        # (1, 1) 0.1353353
+        # So expected number of offspring would be:
+        # (0, 0) 3.523188
+        # (1, 0) 0.4768117
+        # (0, 1) 3.523188
+        # (1, 1) 0.4768117
+        tm.add_fitness_function(
+            id="fit1",
+            trait_ids=["add1"],
+            function_type="gaussian",
+            function_args=[
+                np.array([0.]),
+                np.eye(1) * np.array([0.25])
+            ],
+            population_list=["B"],
+            time_intervals=[[0, 1], [29, 30]]
+        )
+        tm.add_environment(
+            id="env1",
+            trait_ids=["add1", "add2"],
+            distribution_type="mvn",
+            distribution_args=[
+                np.array([0., 0.]),
+                np.eye(2)
+            ]
+        )
+        ts = self.engine.simulate(
+            self.demography, contig, samples=samples, traits_model=tm, seed=7
+        )
+        num_offspring = self.count_offspring(ts)
+        exp_offspring = {}
+        obs_offspring = {}
+        for p, t in pop_time_pairs:
+            if p == "B" and t == 29:
+                exp_offspring[(p, t)] = [
+                    3.523188, 0.4768117, 3.523188, 0.4768117
+                ]
+            else:
+                exp_offspring[(p, t)] = [2, 2, 2, 2]
+            obs_offspring[(p, t)] = [[], [], [], []]
+        for ind in ts.individuals():
+            p = ["A", "B", "anc"][ind.metadata["subpopulation"]]
+            t = ts.node(ind.nodes[0]).time
+            if (p, t) not in pop_time_pairs:
+                continue
+            pid = ind.metadata['pedigree_id']
+            add1 = ind.metadata['per_trait'][1]["phenotype"]
+            add2 = ind.metadata['per_trait'][2]["phenotype"]
+            obs_offspring[(p, t)][round(add1 + 2*add2)].append(
+                num_offspring[pid]
+            )
+        for k, v in exp_offspring.items():
+            for i in range(4):
+                obs = np.mean(obs_offspring[k][i])
+                # Each one should be approximately Poisson
+                tol = 5*np.sqrt(v[i] / len(obs_offspring[k][i]))
+                assert obs >= v[i] - tol and obs <= v[i] + tol
+
+        # test two fitness functions (they should multiply)
+        tm = stdpopsim.TraitsModel(traits=traits)
+        # This will result in the following relative fitnesses
+        # (0, 0) 0.1353353
+        # (1, 0) 0.08208501
+        # (0, 1) 1
+        # (1, 1) 0.6065307
+        # So expected number of offspring would be:
+        # (0, 0) 0.5935918
+        # (1, 0) 0.3600316
+        # (0, 1) 4.386083
+        # (1, 1) 2.660294
+        tm.add_fitness_function(
+            id="fit1",
+            trait_ids=["add1"],
+            function_type="gaussian",
+            function_args=[
+                np.array([0.]),
+                np.eye(1)
+            ],
+        )
+        tm.add_fitness_function(
+            id="fit2",
+            trait_ids=["add2"],
+            function_type="gaussian",
+            function_args=[
+                np.array([1.]),
+                np.eye(1) * 0.25
+            ]
+        )
+        tm.add_environment(
+            id="env1",
+            trait_ids=["add1", "add2"],
+            distribution_type="mvn",
+            distribution_args=[
+                np.array([0., 0.]),
+                np.eye(2)
+            ]
+        )
+        ts = self.engine.simulate(
+            self.demography, contig, samples=samples, traits_model=tm, seed=7
+        )
+        num_offspring = self.count_offspring(ts)
+        exp_offspring = {}
+        obs_offspring = {}
+        for p, t in pop_time_pairs:
+            exp_offspring[(p, t)] = [
+                0.5935918, 0.3600316, 4.386083, 2.660294
+            ]
+            obs_offspring[(p, t)] = [[], [], [], []]
+        for ind in ts.individuals():
+            p = ["A", "B", "anc"][ind.metadata["subpopulation"]]
+            t = ts.node(ind.nodes[0]).time
+            if (p, t) not in pop_time_pairs:
+                continue
+            pid = ind.metadata['pedigree_id']
+            add1 = ind.metadata['per_trait'][1]["phenotype"]
+            add2 = ind.metadata['per_trait'][2]["phenotype"]
+            obs_offspring[(p, t)][round(add1 + 2*add2)].append(
+                num_offspring[pid]
+            )
+        for k, v in exp_offspring.items():
+            for i in range(4):
+                obs = np.mean(obs_offspring[k][i])
+                # Each one should be approximately Poisson
+                tol = 5*np.sqrt(v[i] / len(obs_offspring[k][i]))
+                assert obs >= v[i] - tol and obs <= v[i] + tol
 
     def test_dme(self):
         # tests "mvn" for multivariate traits

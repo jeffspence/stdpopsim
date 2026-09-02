@@ -1762,7 +1762,7 @@ def slim_makescript(
         intervals = np.array(e.time_intervals)
         printsc(
             f"    env_intervals.setValue({idx},"
-            + matrix2str(intervals.astype(float), dim=intervals.shape)
+            + matrix2str(intervals.T.astype(float), dim=intervals.shape)
             + ");"
         )
         if e.distribution_type == "mvn":
@@ -1808,7 +1808,7 @@ def slim_makescript(
         intervals = np.array(ff.time_intervals)
         printsc(
             f"    fit_func_intervals.setValue({idx},"
-            + matrix2str(intervals.astype(float), dim=intervals.shape)
+            + matrix2str(intervals.T.astype(float), dim=intervals.shape)
             + ");"
         )
         if ff.function_type == "gaussian":
