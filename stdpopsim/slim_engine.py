@@ -2001,6 +2001,7 @@ class _SLiMEngine(stdpopsim.Engine):
             hermaphroditic WF model)
 
         TODO: document ``traits_model``, a TraitsModel
+
         :param seed: The seed for the random number generator.
         :type seed: int
         :param extended_events: A list of :class:`ExtendedEvents` to be
