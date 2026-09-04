@@ -79,6 +79,7 @@ jobs:
           cd SLiM/Release
           git checkout multitrait
           cmake -DCMAKE_BUILD_TYPE=Release ..
+          ls -lat
           make -j 2
 
       - name: run test suite
