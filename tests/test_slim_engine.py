@@ -364,7 +364,7 @@ class TestAPI:
     def test_stacked_mutations(self):
         # Verify that `count_mut_types` works with stacked mutations, after
         # these have been converted to nucleotides. When it's possible to set
-        # the stacking policy to "l" in SLiMMutationModel, this test will break
+        # the stacking policy to "l" in SLiMv6MutationModel, this test will break
         # and can be removed.
         engine = stdpopsim.get_engine("slim")
         species = stdpopsim.get_species("HomSap")
