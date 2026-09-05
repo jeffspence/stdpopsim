@@ -1784,7 +1784,7 @@ def slim_makescript(
     printsc("    // Trait transformations")
     printsc(
         '    defineConstant("trait_transforms", c('
-        f'{", ".join([f'"{t.transform}"' for t in traits_model.traits])}));'
+        f'{", ".join(["\"" + t.transform + "\"" for t in traits_model.traits])}));'
     )
     printsc('    defineConstant("trait_transform_params", Dictionary());')
     for t_idx, t in enumerate(traits_model.traits):
