@@ -37,7 +37,9 @@ def _check_nonoverlapping_intervals(intervals):
                 "Intervals must start at the present or some more ancient time."
             )
         if interval[0] > interval[1]:
-            raise ValueError("Lower end of interval must be strictly less than upper end.")
+            raise ValueError(
+                "Lower end of interval must be strictly less than upper end."
+            )
         if interval[0] < prev_end:
             raise ValueError("Intervals must be non-overlapping.")
         prev_end = interval[1]

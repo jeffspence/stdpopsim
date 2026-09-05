@@ -7,7 +7,6 @@ import stdpopsim
 import numpy as np
 import copy
 import textwrap
-import re
 
 
 def check_trait_ids_errors(fun, args):
@@ -70,7 +69,7 @@ def test_check_nonoverlapping_intervals_errors():
         [(-3, 5)], "Intervals must start at the present"
     )
     check_particular_nonoverlapping_intervals_error(
-        [(6, 2)], re.escape("Intervals must be specified as (lower, upper).")
+        [(6, 2)], "Lower end of interval must be"
     )
     check_particular_nonoverlapping_intervals_error(
         [(0, 3), (2, 5)], "Intervals must be non-overlapping."
