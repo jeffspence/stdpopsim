@@ -99,7 +99,6 @@ class DFETestMixin:
             slim_scaling_factor=10,
             slim_burn_in=10,
             seed=42,
-            keep_mutation_ids_as_alleles=True,
         )
 
         mut_info = {}
@@ -108,7 +107,7 @@ class DFETestMixin:
         mut_metadata = pyslim.mutation_metadata(ts)
         assert ts.metadata["SLiM"]["traits"][0]["name"] == "fitnessT"
         for mut in ts.mutations():
-            for j in mut.derived_state.split(","):
+            for j in mut.metadata["derived_states"]:
                 md = mut_metadata[int(j)]
                 uid = f"{mut.id}_{j}"
                 sel_coeff = md["per_trait"][0]["effect_size"]

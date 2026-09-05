@@ -26,8 +26,12 @@ slim_path = os.environ.get("SLIM", "slim")
 
 def count_mut_types(ts):
     assert ts.metadata["SLiM"]["traits"][0]["name"] == "fitnessT"
-    muts = ts.metadata["SLiM_mutation_list"]
-    selection_coeffs = [m["per_trait"][0]["effect_size"] for m in muts]
+    md = pyslim.mutation_metadata(ts)
+    assert md is not None
+    selection_coeffs = [
+        stdpopsim.selection_coeff_from_mutation(ts, m, md, False)
+        for m in ts.mutations()
+    ]
     num_neutral = sum([s == 0 for s in selection_coeffs])
     return [num_neutral, abs(len(selection_coeffs) - num_neutral)]
 
@@ -380,7 +384,7 @@ class TestAPI:
                 slim_burn_in=0,
                 keep_mutation_ids_as_alleles=False,
             )
-            is_stacked = [m.parent > -1 for m in ts.mutations()]
+            is_stacked = [len(m.metadata["derived_states"]) > 1 for m in ts.mutations()]
             if any(is_stacked):
                 break
         count_mut_types(ts)
@@ -1324,7 +1328,6 @@ class TestGenomicElementTypes(PiecewiseConstantSizeMixin):
             samples=self.samples,
             seed=124,
             verbosity=3,
-            keep_mutation_ids_as_alleles=True,
         )
         for j, (t, mt) in enumerate(self.example_mut_types):
             sites = np.where(
@@ -1339,7 +1342,7 @@ class TestGenomicElementTypes(PiecewiseConstantSizeMixin):
             for k in sites:
                 s = ts.site(k)
                 for mut in s.mutations:
-                    for slim_idx in map(int, mut.derived_state.split(",")):
+                    for slim_idx in mut.metadata["derived_states"]:
                         md = mut_metadata[slim_idx]
                         sel_coeff = md["per_trait"][0]["effect_size"]
                         if not mt.is_neutral:
@@ -1890,7 +1893,6 @@ class TestGenomicElementTypes(PiecewiseConstantSizeMixin):
             samples=self.samples,
             verbosity=3,  # to get metadata output
             seed=260,
-            keep_mutation_ids_as_alleles=True,
         )
         assert len(ts.metadata["stdpopsim"]["DFEs"]) == len(contig.dme_list) + 1
         # slim mutation type IDs with dominance coeff lists:
@@ -1907,7 +1909,7 @@ class TestGenomicElementTypes(PiecewiseConstantSizeMixin):
         num_target_muts = 0
         mut_metadata = pyslim.mutation_metadata(ts)
         for mut in ts.mutations():
-            for slim_idx in map(int, mut.derived_state.split(",")):
+            for slim_idx in mut.metadata["derived_states"]:
                 md = mut_metadata[slim_idx]
                 if mut_id_haslist[md["mutation_type"]]:
                     num_target_muts += 1
@@ -3128,24 +3130,48 @@ class TestSelectionCoeffFromMutation:
         proportions=[0.5, 0.5],
     )
 
+    def test_check_trait_0_is_fitness(self):
+        engine = stdpopsim.get_engine("slim")
+        contig = self.species.get_contig(length=20, mutation_rate=1e-2)
+        contig.add_dme(np.array([[0, contig.length // 2]]), self.dfe)
+        ts = engine.simulate(
+            demographic_model=self.model,
+            contig=contig,
+            samples=self.samples,
+            slim_burn_in=10,
+            seed=753,
+        )
+        tables = ts.dump_tables()
+        md = tables.metadata
+        md["SLiM"]["traits"][0]["name"] = "notfitnessT"
+        tables.metadata = md
+        ts = tables.tree_sequence()
+
+        with pytest.raises(ValueError, match="The first trait"):
+            stdpopsim.selection_coeff_from_mutation(ts, ts.mutation(0))
+
     def test_stacked(self):
         engine = stdpopsim.get_engine("slim")
         contig = self.species.get_contig(length=20, mutation_rate=1e-2)
         contig.add_dme(np.array([[0, contig.length // 2]]), self.dfe)
+        idx = 0
         while True:
+            idx += 1
             ts = engine.simulate(
                 demographic_model=self.model,
                 contig=contig,
                 samples=self.samples,
                 slim_burn_in=10,
-                seed=753,
+                seed=753 + idx,
             )
-            is_stacked = [m.parent > -1 for m in ts.mutations()]
+            is_stacked = [len(m.metadata["derived_states"]) > 1 for m in ts.mutations()]
             if any(is_stacked):
                 break
-        assert ts.metadata["SLiM"]["traits"][0]["name"] == "fitnessT"
-        mut_list = ts.metadata["SLiM_mutation_list"]
-        selection_coeffs = [m["per_trait"][0]["effect_size"] for m in mut_list]
+        md = pyslim.mutation_metadata(ts)
+        selection_coeffs = [
+            stdpopsim.selection_coeff_from_mutation(ts, m, md, False)
+            for m in ts.mutations()
+        ]
         assert np.all(
             np.logical_or(
                 np.isclose(selection_coeffs, -0.01),
@@ -3153,15 +3179,25 @@ class TestSelectionCoeffFromMutation:
             )
         )
 
+        # make sure that using precomputed metadata matches recomputing the
+        # metadata each time
+        for i in range(5):
+            this_s = stdpopsim.selection_coeff_from_mutation(
+                ts, ts.mutation(i), check_trait_0_is_fitness=False
+            )
+            assert selection_coeffs[i] == this_s
+
     def test_msprime(self):
         engine = stdpopsim.get_engine("msprime")
         contig = self.species.get_contig(length=20, mutation_rate=1e-2)
+        idx = 0
         while True:
+            idx += 1
             ts = engine.simulate(
                 demographic_model=self.model,
                 contig=contig,
                 samples=self.samples,
-                seed=864,
+                seed=864 + idx,
             )
             if ts.num_mutations > 0:
                 break
@@ -3173,12 +3209,14 @@ class TestSelectionCoeffFromMutation:
     def test_errors(self):
         engine = stdpopsim.get_engine("msprime")
         contig = self.species.get_contig(length=20, mutation_rate=1e-2)
+        idx = 0
         while True:
+            idx += 1
             ts = engine.simulate(
                 demographic_model=self.model,
                 contig=contig,
                 samples=self.samples,
-                seed=975,
+                seed=975 + idx,
             )
             if ts.num_mutations > 0:
                 break
@@ -3829,6 +3867,44 @@ class TestTraits:
         )
         assert ts.metadata["SLiM"]["tick"] == 271
 
+    # in test_environment, we check to make sure that environments are applied
+    # where and when we think they are being applied. All of those tests use
+    # "mvn" distributed environments.   Here we test to make sure that other
+    # kinds of distributions have the distribution we think they have.
+    def test_environment_distributions(self):
+        samples = [
+            msprime.SampleSet(100, "A", 0, 2),
+            msprime.SampleSet(100, "A", 29, 2),
+            msprime.SampleSet(50, "B", 0, 2),
+            msprime.SampleSet(50, "B", 29, 2),
+            msprime.SampleSet(20, "anc", 30, 2),
+        ]
+
+        contig = self.species.get_contig("chr1", left=0, right=100)
+
+        # test distribution "f"
+        tm = stdpopsim.TraitsModel(traits=self.traits)
+        tm.add_environment(
+            id="env1", trait_ids=["add1"], distribution_type="f", distribution_args=[1]
+        )
+        with pytest.raises(NotImplementedError, match="Environment distribution"):
+            self.engine.simulate(
+                self.demography, contig, samples=samples, traits_model=tm, seed=7
+            )
+
+        # test distribution "n"
+        tm = stdpopsim.TraitsModel(traits=self.traits)
+        tm.add_environment(
+            id="env1",
+            trait_ids=["add1"],
+            distribution_type="n",
+            distribution_args=[0, 0.5],
+        )
+        with pytest.raises(NotImplementedError, match="Environment distribution"):
+            self.engine.simulate(
+                self.demography, contig, samples=samples, traits_model=tm, seed=7
+            )
+
     def test_environments(self):
         samples = [
             msprime.SampleSet(100, "A", 0, 2),
@@ -4432,6 +4508,41 @@ class TestTraits:
                 num_offspring[p2] += 1
         return num_offspring
 
+    # in test_fitness, we check to make sure that fitness effects are applied
+    # where and when we think they are being applied. All of those tests use
+    # "gaussian" fitness functions.   Here we test to make sure that other
+    # kinds of fitness functions have the function we think they have.
+    def test_fitness_function_functions(self):
+        # these are paired up in adjacent generations
+        # so that we can estimate the fitness of
+        # individuals based on the number of offspring they have
+        samples = [
+            msprime.SampleSet(100, "A", 0, 2),
+            msprime.SampleSet(100, "A", 1, 2),
+            msprime.SampleSet(100, "A", 28, 2),
+            msprime.SampleSet(100, "A", 29, 2),
+            msprime.SampleSet(50, "B", 0, 2),
+            msprime.SampleSet(50, "B", 1, 2),
+            msprime.SampleSet(50, "B", 28, 2),
+            msprime.SampleSet(50, "B", 29, 2),
+            msprime.SampleSet(20, "anc", 30, 2),
+            msprime.SampleSet(20, "anc", 31, 2),
+        ]
+
+        contig = self.species.get_contig("chr1", left=0, right=100)
+
+        tm = stdpopsim.TraitsModel(traits=self.traits)
+        tm.add_fitness_function(
+            id="fit1",
+            trait_ids=["add1"],
+            function_type="threshold",
+            function_args=[0.5, 0, 1],
+        )
+        with pytest.raises(NotImplementedError, match="FitnessFunction function"):
+            self.engine.simulate(
+                self.demography, contig, samples=samples, traits_model=tm, seed=7
+            )
+
     def test_fitness(self):
         # these are paired up in adjacent generations
         # so that we can estimate the fitness of
@@ -4753,7 +4864,6 @@ class TestTraits:
             samples={"A": 3},
             traits_model=tm,
             seed=7,
-            keep_mutation_ids_as_alleles=True,
         )
         assert ts.metadata["SLiM"]["traits"][0]["name"] == "fitnessT"
         assert ts.metadata["SLiM"]["traits"][1]["name"] == "add1T"
@@ -4824,7 +4934,6 @@ class TestTraits:
             samples={"A": 3},
             traits_model=tm,
             seed=7,
-            keep_mutation_ids_as_alleles=True,
         )
         assert ts.metadata["SLiM"]["traits"][0]["name"] == "fitnessT"
         assert ts.metadata["SLiM"]["traits"][1]["name"] == "add1T"

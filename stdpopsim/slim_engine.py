@@ -1774,14 +1774,18 @@ def slim_makescript(
             printsc(f"    env_params.setValue({idx}, x);")
         else:
             # TODO: implement other distribution types
-            assert False
+            raise NotImplementedError(
+                "Environment distribution not implemented in slim_engine."
+            )
         these_traits = ", ".join([f'"{tid}T"' for tid in e.trait_ids])
         printsc(f"    env_traits.setValue({idx}, c({these_traits}));")
 
     # Trait transformation callbacks
     printsc("    // Trait transformations")
-    transforms = ", ".join([f'"{t.transform}"' for t in traits_model.traits])
-    printsc(f'    defineConstant("trait_transforms", c({transforms}));')
+    printsc(
+        '    defineConstant("trait_transforms", c('
+        f'{", ".join([f'"{t.transform}"' for t in traits_model.traits])}));'
+    )
     printsc('    defineConstant("trait_transform_params", Dictionary());')
     for t_idx, t in enumerate(traits_model.traits):
         if t.transform != "identity":
@@ -1820,7 +1824,9 @@ def slim_makescript(
             printsc(f"    fit_func_params.setValue({idx}, x);")
         else:
             # TODO: implement other function types
-            assert False
+            raise NotImplementedError(
+                "FitnessFunction function not implemented in slim_engine."
+            )
         these_traits = ", ".join([f'"{tid}T"' for tid in ff.trait_ids])
         printsc(f"    fit_func_traits.setValue({idx}, c({these_traits}));")
 

@@ -7,6 +7,7 @@ import stdpopsim
 import numpy as np
 import copy
 import textwrap
+import re
 
 
 def check_trait_ids_errors(fun, args):
@@ -24,37 +25,56 @@ def check_trait_ids_errors(fun, args):
             fun(trait_ids=tids, **args)
 
 
-def check_nonoverlapping_intervals_errors():
-    bad_intervals = [
-        [(1, 2, 3)],
-        [[]],
-        [],
-        [["foo", 2]],
-        [(1, "bar")],
-        [(-1, 3)],
-        [(3, 1)],
-        [(1, 3), (2, 5)],
-    ]
+def check_particular_nonoverlapping_intervals_error(intervals, match):
+    with pytest.raises(ValueError, match=match):
+        stdpopsim.traits._check_nonoverlapping_intervals(intervals)
+    tm = stdpopsim.TraitsModel(
+        traits=[
+            stdpopsim.Trait(id="height", type="additive"),
+            stdpopsim.Trait(id="not_height", type="additive"),
+        ]
+    )
+    with pytest.raises(ValueError, match=match):
+        tm.add_environment(
+            id="abc",
+            trait_ids=["height", "not_height"],
+            distribution_type="mvn",
+            distribution_args=[np.zeros(2), np.eye(2)],
+            time_intervals=intervals,
+        )
+    with pytest.raises(ValueError, match=match):
+        tm.add_fitness_function(
+            id="abc",
+            trait_ids=["height", "not_height"],
+            function_type="gaussian",
+            function_args=[np.zeros(2), np.eye(2)],
+            time_intervals=intervals,
+        )
 
-    for bad_int in bad_intervals:
-        with pytest.raises(ValueError, match="nterval"):
-            stdpopsim._check_nonoverlapping_intervals(bad_int)
-        with pytest.raises(ValueError, match="nterval"):
-            stdpopsim.Environment(
-                id="abc",
-                trait_ids=["height"],
-                distribution_type="g",
-                distribution_args=[1, 2],
-                time_intervals=bad_int,
-            )
-        with pytest.raises(ValueError, match="nterval"):
-            stdpopsim.FitnessFunction(
-                id="foo",
-                trait_ids=["fitness"],
-                function_type="gaussian",
-                function_args=[np.array([0]), np.array([[1]])],
-                time_intervals=bad_int,
-            )
+
+def test_check_nonoverlapping_intervals_errors():
+    check_particular_nonoverlapping_intervals_error(5, "Intervals must be a list.")
+    check_particular_nonoverlapping_intervals_error(
+        [], "Cannot supply an empty list of intervals."
+    )
+    check_particular_nonoverlapping_intervals_error(
+        [(1, 2, 3)], "Each interval in time_interval must be of the form"
+    )
+    check_particular_nonoverlapping_intervals_error(
+        [("blee", 1)], "Intervals must be numeric."
+    )
+    check_particular_nonoverlapping_intervals_error(
+        [(2.0, "blee")], "Intervals must be numeric."
+    )
+    check_particular_nonoverlapping_intervals_error(
+        [(-3, 5)], "Intervals must start at the present"
+    )
+    check_particular_nonoverlapping_intervals_error(
+        [(6, 2)], re.escape("Intervals must be specified as (lower, upper).")
+    )
+    check_particular_nonoverlapping_intervals_error(
+        [(0, 3), (2, 5)], "Intervals must be non-overlapping."
+    )
 
 
 def check_arg_copies(fun, args, check_arg):
@@ -677,9 +697,6 @@ class TestFitnessFunction:
 class TestCreateMutationType:
     """
     Tests for creating a MutationType instance.
-
-    TODO: move this to `tests/test_traits.py`; I'm leaving it here
-    for now so that the diff is cleaner.
     """
 
     def test_default_mutation_type(self):

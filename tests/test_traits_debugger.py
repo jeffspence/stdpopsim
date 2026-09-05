@@ -63,6 +63,44 @@ class TestCollectValidPopulationIntervals:
         assert got[by_name["Bronze"]] == [[0, 140]]
 
 
+# All of the other parts of _standardize_condition are covered by other tests
+# except that it raises this error
+def test_standardize_condition():
+    valid_intervals = {
+        0: [[0, 3000]],
+        1: [[0, 3000]],
+        2: [[3000, float("inf")]],
+    }
+
+    condition = traits_model().fitness_functions[0]
+    condition.population_list = [4]
+    with pytest.raises(ValueError, match="Population index out of bounds."):
+        stdpopsim.traits._standardize_condition(condition, valid_intervals)
+
+
+def test_resolve_population_ids():
+    tm = traits_model(population_list=[0, 2, 1, 3])
+    species = stdpopsim.get_species("HomSap")
+    dm = species.get_demographic_model("AncientEurope_4A21")
+    stdpopsim.traits._resolve_population_ids(tm, dm)
+    assert tm.fitness_functions[0].population_list == [0, 2, 1, 3]
+
+    tm = traits_model(population_list=["OOA", "WA", "NE", "CHG"])
+    stdpopsim.traits._resolve_population_ids(tm, dm)
+    assert tm.fitness_functions[0].population_list == [0, 2, 1, 3]
+
+    tm = traits_model(population_list=[-3])
+    with pytest.raises(ValueError, match="Population index out of bounds"):
+        stdpopsim.traits._resolve_population_ids(tm, dm)
+
+    tm = traits_model()
+    # We have to set this manually, because intializing a fitness function
+    # already checks for repeated indices.
+    tm.fitness_functions[0].population_list = [0, 1, 2, 1]
+    with pytest.raises(ValueError, match="Repeated population indices."):
+        stdpopsim.traits._resolve_population_ids(tm, dm)
+
+
 class TestAlignTraitsModelDemography:
     def align(self, tm):
         return traits._align_traits_model_demography(tm, split_model())
