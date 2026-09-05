@@ -82,6 +82,12 @@ def test_standardize_condition():
     new_conditions = stdpopsim.traits._standardize_condition(condition, valid_intervals)
     assert new_conditions[0].time_intervals[0] == [5, 3000]
 
+    condition = traits_model(
+        population_list=[0], time_intervals=[[3001, float("inf")]]
+    ).fitness_functions[0]
+    with pytest.raises(ValueError, match="An environment or a fitness"):
+        stdpopsim.traits._standardize_condition(condition, valid_intervals)
+
 
 def test_resolve_population_ids():
     tm = traits_model(population_list=[0, 2, 1, 3])
