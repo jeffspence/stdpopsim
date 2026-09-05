@@ -64,7 +64,6 @@ class TestCollectValidPopulationIntervals:
 
 
 # All of the other parts of _standardize_condition are covered by other tests
-# except that it raises this error
 def test_standardize_condition():
     valid_intervals = {
         0: [[0, 3000]],
@@ -76,6 +75,12 @@ def test_standardize_condition():
     condition.population_list = [4]
     with pytest.raises(ValueError, match="Population index out of bounds."):
         stdpopsim.traits._standardize_condition(condition, valid_intervals)
+
+    condition = traits_model(
+        population_list=[0], time_intervals=[[5, float("inf")]]
+    ).fitness_functions[0]
+    new_conditions = stdpopsim.traits._standardize_condition(condition, valid_intervals)
+    assert new_conditions[0].time_intervals[0] == [5, 3000]
 
 
 def test_resolve_population_ids():

@@ -3141,12 +3141,17 @@ class TestSelectionCoeffFromMutation:
             slim_burn_in=10,
             seed=753,
         )
+
+        # We just want to make sure this doesn't trigger a value error, but we
+        # can check to make sure that it computes the right thing, too
+        s = stdpopsim.selection_coeff_from_mutation(ts, ts.mutation(0))
+        assert np.isclose(s, -0.01) or np.isclose(s, 0.0)
+
         tables = ts.dump_tables()
         md = tables.metadata
         md["SLiM"]["traits"][0]["name"] = "notfitnessT"
         tables.metadata = md
         ts = tables.tree_sequence()
-
         with pytest.raises(ValueError, match="The first trait"):
             stdpopsim.selection_coeff_from_mutation(ts, ts.mutation(0))
 
