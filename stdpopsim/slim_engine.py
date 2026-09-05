@@ -1782,9 +1782,10 @@ def slim_makescript(
 
     # Trait transformation callbacks
     printsc("    // Trait transformations")
+    # chr(34) is " and we use it to get away without needing nested f-strings.
     printsc(
         '    defineConstant("trait_transforms", c('
-        f'{", ".join(["\"" + t.transform + "\"" for t in traits_model.traits])}));'
+        f'{", ".join([chr(34) + t.transform + chr(34) for t in traits_model.traits])}));'
     )
     printsc('    defineConstant("trait_transform_params", Dictionary());')
     for t_idx, t in enumerate(traits_model.traits):
